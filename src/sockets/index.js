@@ -38,7 +38,7 @@ async function initSocket(httpServer) {
     */
 
       socket.on("ai-message", async (messagePayload) => {
-        const message = await Messages.create({
+        /*  const message = await Messages.create({
           chat: messagePayload?.chat,
           user: socket.user?._id,
           content: messagePayload?.content,
@@ -47,13 +47,25 @@ async function initSocket(httpServer) {
 
         const vectors = await aiService.generateVector(messagePayload.content);
 
-        const memory = await vectorService.queryMemory({
-          queryVector: vectors,
-          limit: 3,
-          metadata: {
-            user: socket.user._id,
-          },
-        });
+        */
+
+        const [message, vectors] = await Promise.all([
+          Messages.create({
+            chat: messagePayload?.chat,
+            user: socket.user?._id,
+            content: messagePayload?.content,
+            role: "user",
+          }),
+          aiService.generateVector(messagePayload.content),
+        ]);
+
+        // const memory = await vectorService.queryMemory({
+        //   queryVector: vectors,
+        //   limit: 3,
+        //   metadata: {
+        //     user: socket.user._id,
+        //   },
+        // });
 
         // console.log(memory);
 
@@ -67,14 +79,31 @@ async function initSocket(httpServer) {
           },
         });
 
-        const chatHistory = (
-          await Messages.find({
+        const [memory, chatHistory] = await Promise.all([
+          vectorService.queryMemory({
+            queryVector: vectors,
+            limit: 3,
+            metadata: {
+              user: socket.user._id,
+            },
+          }),
+          Messages.find({
             chat: messagePayload.chat,
           })
             .sort({ createdAt: -1 })
             .limit(20)
             .lean()
-        ).reverse();
+            .then((messages) => messages.reverse()),
+        ]);
+
+        // const chatHistory = (
+        //   await Messages.find({
+        //     chat: messagePayload.chat,
+        //   })
+        //     .sort({ createdAt: -1 })
+        //     .limit(20)
+        //     .lean()
+        // ).reverse();
 
         const stm = chatHistory.map((item) => {
           return {
@@ -96,22 +125,43 @@ async function initSocket(httpServer) {
           },
         ];
 
-        console.log(ltm[0]);
-        console.log(stm);
         const response = await aiService.generateResponse([...ltm, ...stm]);
 
         if (!response) {
           return socket.emit("error", "AI unavailable, try later");
         }
 
-        const responseMessage = await Messages.create({
+        /*   
+     const responseMessage = await Messages.create({
           chat: messagePayload.chat,
           user: socket?.user?._id,
           content: response || "",
           role: "model",
         });
 
-        const responseVector = await aiService.generateVector(response);
+        const responseVector = await aiService.generateVector(response); 
+        */
+
+        socket.emit("ai-response", {
+          content: response && response,
+          chat: messagePayload.chat,
+        });
+
+        /*
+         * store response message in DB
+         * create response vector of a response message
+         * create memory of response vectors and store in pinecone db
+         */
+
+        const [responseMessage, responseVector] = await Promise.all([
+          Messages.create({
+            chat: messagePayload.chat,
+            user: socket?.user?._id,
+            content: response || "",
+            role: "model",
+          }),
+          aiService.generateVector(response),
+        ]);
 
         await vectorService.createMemory({
           vectors: responseVector,
@@ -121,11 +171,6 @@ async function initSocket(httpServer) {
             user: socket?.user?._id,
             text: response,
           },
-        });
-
-        socket.emit("ai-response", {
-          content: response && response,
-          chat: messagePayload.chat,
         });
       });
 
