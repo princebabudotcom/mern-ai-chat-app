@@ -84,7 +84,7 @@ async function initSocket(httpServer) {
             queryVector: vectors,
             limit: 3,
             metadata: {
-              user: socket.user._id,
+              user: socket?.user?._id,
             },
           }),
           Messages.find({

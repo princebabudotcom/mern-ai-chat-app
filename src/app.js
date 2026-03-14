@@ -4,8 +4,13 @@ import http from "http";
 const app = express();
 const httpServer = http.createServer(app);
 import cookieParser from "cookie-parser";
+import cors from 'cors'
 
 // middleares
+app.use(cors({
+    origin:"http://localhost:5173",
+    credentials:true
+}))
 app.use(express.json());
 app.use(cookieParser());
 

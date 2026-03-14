@@ -6,9 +6,9 @@ async function registerUser(req, res) {
 
   try {
     let user;
-    user = await User.findOne({ email });
+   const existUser = await User.findOne({ email });
 
-    if (user) {
+    if (existUser) {
       return res.status(409).json({
         message: "User already exists with this email",
       });
@@ -20,11 +20,16 @@ async function registerUser(req, res) {
       password,
     });
 
-    const token = jwt.sign({id:user._id, email }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user._id, email }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
-    res.cookie("token", token, {});
+    res.cookie("token", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     return res.status(201).json({
       message: "User created sucesfully",
@@ -45,7 +50,7 @@ async function Login(req, res) {
       });
     }
 
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       return res.status(404).json({
@@ -59,11 +64,16 @@ async function Login(req, res) {
       });
     }
 
-    const token = jwt.sign({ id:user._id, email }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user._id, email }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
-    res.cookie("token", token, {});
+    res.cookie("token", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     return res.status(201).json({
       message: "User Login sucesfully",

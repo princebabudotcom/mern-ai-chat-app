@@ -7,8 +7,8 @@ const pc = new Pinecone({
 });
 
 const index = pc.Index({
-  name: "chatbot",
-  host: "https://chatbot-5yzvao2.svc.aped-4627-b74a.pinecone.io",
+  name: "ankit",
+  host: "https://ankit-5yzvao2.svc.aped-4627-b74a.pinecone.io",
 });
 
 const createMemory = async ({ vectors, metadata, messageId }) => {
